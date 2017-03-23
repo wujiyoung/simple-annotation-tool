@@ -30,7 +30,7 @@ int tempX, tempY;	// current mouse position
 int rflag = 0;	// 1, start drawing rectangle
 int targetnum = 0;	// target number in current image
 int pflag = 0;	// 1, start drawing polygon
-int polygonnum = 0;
+int polygonnum = 0;	// polygon number in current image
 
 int mode = 0;	//0,rectangle mode;  1,polygon mode
 
@@ -38,10 +38,10 @@ int boxtype = 0;	// 0,rectangular; 1,parallelogram TODO
 
 enum recttype { LEFT = 1, RIGHT, FORWARD, LEFT_FORWARD, RIGHT_FORWARD, RT_NUM };
 enum polygontype { PARKING = 1, SOLID_WHITE, DASHED_WHITE, SOLID_YELLOW, DASHED_YELLOW, DOUBLE_YELLOW, PT_NUM };
-int curtype = 1;
+int curtype = 0;	//default type 0
 
-vector<Vec3f> rect_colors;
-vector<Vec3f> polygon_colors;
+vector<Vec3f> rect_colors;	// color vectors of different rect target
+vector<Vec3f> polygon_colors;	// color vectors of different polygon
 
 // target node
 struct RectfNode {
@@ -67,14 +67,14 @@ int imgnum = 0;	// current image number, default 0
 
 char winName[20];	// window title
 
-Mat instruction(450, 550, CV_8UC3, Scalar::all(255));
+Mat instruction(450, 550, CV_8UC3, Scalar::all(255));	// show instruction
 
 void saveLabel(){
 
 	string labeldir = imgdir + "../label/";
 	string targetdir = labeldir + "target/";
 	string segdir = labeldir + "segmentation/";
-	if (access(labeldir.c_str(), 0) != 0){
+	if (access(labeldir.c_str(), 0) != 0){	// create labeldir, targetdir and segdir if not existed
 		#ifdef _WIN32
 		int status = mkdir(labeldir.c_str());
 		int status1 = mkdir(targetdir.c_str());
@@ -165,7 +165,7 @@ void initial(){
 		hscale = 1.0;
 	}
 
-	rect_colors.push_back(Vec3f(0.0f, 0.0f, 0.0f));	// backgrund color
+	rect_colors.push_back(Vec3f(0.0f, 0.0f, 0.0f));	// default type color
 	rect_colors.push_back(Vec3f(0.5f, 0.0f, 0.0f));
 	rect_colors.push_back(Vec3f(0.0f, 0.5f, 0.0f));
 	rect_colors.push_back(Vec3f(0.0f, 0.0f, 0.5f));
@@ -173,7 +173,7 @@ void initial(){
 	rect_colors.push_back(Vec3f(0.0f, 0.5f, 0.5f));
 
 
-	polygon_colors.push_back(Vec3f(0.0f, 0.0f, 0.0f));
+	polygon_colors.push_back(Vec3f(0.0f, 0.0f, 0.0f));	// default type color
 	polygon_colors.push_back(Vec3f(1.0f, 0.0f, 0.0f));
 	polygon_colors.push_back(Vec3f(0.0f, 1.0f, 0.0f));
 	polygon_colors.push_back(Vec3f(0.0f, 0.0f, 1.0f));
@@ -341,39 +341,22 @@ void Display(void){
 	glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 	glLineWidth(3);
 	int i = 0;
-	//draw rectangle
+	// draw rectangle
 	for (; i < targetnum; i++){
-		// differetn target type in different color
-		// switch (targetType[i])
-		// {
-		// 	case LEFT: glColor3f(1.0f, 0.0f, 0.0f); break;
-		// 	case RIGHT: glColor3f(0.0f, 1.0f, 0.0f); break;
-		// 	case FORWARD: glColor3f(0.0f, 0.0f, 1.0f); break;
-		// }
 		glColor3f(rect_colors[targetType[i]][0], rect_colors[targetType[i]][1], rect_colors[targetType[i]][2]);
 		glRecti(targets[i].x1 * wscale, targets[i].y1 * hscale, targets[i].x2 * wscale, targets[i].y2 * hscale);
 
 	}
 	if (mode == 0 && rflag == 1)
     {
-		// switch (targetType[i]) {
-		// case LEFT: glColor3f(1.0f, 0.0f, 0.0f); break;
-		// case RIGHT: glColor3f(0.0f, 1.0f, 0.0f); break;
-		// case FORWARD: glColor3f(0.0f, 0.0f, 1.0f); break;
-		// }
 		glColor3f(rect_colors[targetType[i]][0], rect_colors[targetType[i]][1], rect_colors[targetType[i]][2]);
 		glRecti(targets[i].x1 * wscale, targets[i].y1 * hscale, tempX, tempY);
 	}
 
-
+	// draw polygon
 	int j = 0;
 	glLineWidth(1);
 	for (; j < polygonnum; j++){
-		// switch (polygonType[j])
-		// {
-		// 	case PARKING: glColor3f(1.0f, 0.0f, 0.0f); break;
-		// 	case SOLID_WHITE: glColor3f(0.0f, 1.0f, 0.0f); break;
-		// }
 		glColor3f(polygon_colors[polygonType[j]][0], polygon_colors[polygonType[j]][1], polygon_colors[polygonType[j]][2]);
 		glBegin(GL_POLYGON);
 		for (int k = 0; k < polygons[j].size(); k++){
@@ -382,11 +365,6 @@ void Display(void){
 		glEnd();
 	}
 	if (mode == 1 && pflag == 1){
-		// switch (polygonType[polygonnum])
-		// {
-		// 	case PARKING: glColor3f(1.0f, 0.0f, 0.0f); break;
-		// 	case SOLID_WHITE: glColor3f(0.0f, 1.0f, 0.0f); break;
-		// }
 		glColor3f(polygon_colors[polygonType[j]][0], polygon_colors[polygonType[j]][1], polygon_colors[polygonType[j]][2]);
 		int k = 1;
 		for (; k < polygons[polygonnum].size(); k++){
@@ -557,10 +535,8 @@ void keyboardPress(unsigned char key, int x, int y){
 	else if (key == 'r' || key == 'R'){
 		rflag = 0;
 		targetnum = 0;
-		vector<RectfNode>(targets).swap(targets);
+		vector<RectfNode>(targets).swap(targets);	// delete vector
 		vector<int>(targetType).swap(targetType);
-		// targets.resize(0);
-		// targetType.resize(0);
 
 		pflag = 0;
 		polygonnum = 0;
@@ -569,7 +545,6 @@ void keyboardPress(unsigned char key, int x, int y){
 		glutPostRedisplay();
 	}
 	else if (key == 's'){
-		// TODO save targets and targetTypes to file
 		saveLabel();
 	}
 }

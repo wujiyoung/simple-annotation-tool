@@ -36,7 +36,7 @@ int mode = 0;	//0,rectangle mode;  1,polygon mode
 
 int boxtype = 0;	// 0,rectangular; 1,parallelogram TODO
 
-enum recttype { LEFT = 1, RIGHT, FORWARD, LEFT_FORWARD, RIGHT_FORWARD, RT_NUM };
+enum recttype { LEFT = 1, RIGHT, FORWARD, LEFT_FORWARD, RIGHT_FORWARD, TURN_ROUND, RT_NUM };
 enum polygontype { PARKING = 1, SOLID_WHITE, DASHED_WHITE, SOLID_YELLOW, DASHED_YELLOW, DOUBLE_YELLOW, PT_NUM };
 int curtype = 0;	//default type 0
 
@@ -59,7 +59,8 @@ std::vector<int> polygonType;
 
 GLuint texture;	// texture of current image
 // string imgdir = "/home/tony/Documents/matconvnet-master/matconvnet-fcn-master/data/voc11/JPEGImages/";	// images directory
-string imgdir = "images/";
+// string imgdir = "images/";
+string imgdir, labeldir, targetdir, segdir;
 vector<cv::String> imgpaths;	// images path list
 vector<string> targetFiles;	// target files list
 int imgsLen;	// images length
@@ -70,24 +71,6 @@ char winName[20];	// window title
 Mat instruction(450, 550, CV_8UC3, Scalar::all(255));	// show instruction
 
 void saveLabel(){
-
-	string labeldir = imgdir + "../label/";
-	string targetdir = labeldir + "target/";
-	string segdir = labeldir + "segmentation/";
-	if (access(labeldir.c_str(), 0) != 0){	// create labeldir, targetdir and segdir if not existed
-		#ifdef _WIN32
-		int status = mkdir(labeldir.c_str());
-		int status1 = mkdir(targetdir.c_str());
-		int status2 = mkdir(segdir.c_str());
-		#else
-		int status = mkdir(labeldir.c_str(), S_IRWXU);
-		int status1 = mkdir(targetdir.c_str(), S_IRWXU);
-		int status2 = mkdir(segdir.c_str(), S_IRWXU);
-		#endif
-		if (status != 0 || status1 != 0 || status2 != 0){
-			cout << "fail to create directory!" << endl;
-		}
-	}
 
 	string targetfile = targetdir + targetFiles[imgnum] + ".txt";
 	string segImage = segdir + targetFiles[imgnum] + "_seg.png";
@@ -127,6 +110,30 @@ void saveLabel(){
  * initialize image lists
  */
 void initial(){
+
+	FileStorage fs("config.yml", FileStorage::READ);
+	fs["dataPath"] >> imgdir;
+	fs.release();
+	cout << "data path: " << imgdir << endl;
+
+	string labeldir = imgdir + "../label/";
+	string targetdir = labeldir + "target/";
+	string segdir = labeldir + "segmentation/";
+	cout << "label path: " << labeldir << endl;
+	if (access(labeldir.c_str(), 0) != 0){	// create labeldir, targetdir and segdir if not existed
+		#ifdef _WIN32
+		int status = mkdir(labeldir.c_str());
+		int status1 = mkdir(targetdir.c_str());
+		int status2 = mkdir(segdir.c_str());
+		#else
+		int status = mkdir(labeldir.c_str(), S_IRWXU);
+		int status1 = mkdir(targetdir.c_str(), S_IRWXU);
+		int status2 = mkdir(segdir.c_str(), S_IRWXU);
+		#endif
+		if (status != 0 || status1 != 0 || status2 != 0){
+			cout << "fail to create directory!" << endl;
+		}
+	}
 
 	// get all the image paths in 'imgdir' and save it in 'imgpaths'
 	glob(imgdir, imgpaths, false);
@@ -171,6 +178,7 @@ void initial(){
 	rect_colors.push_back(Vec3f(0.0f, 0.0f, 0.5f));
 	rect_colors.push_back(Vec3f(0.5f, 0.0f, 0.5f));
 	rect_colors.push_back(Vec3f(0.0f, 0.5f, 0.5f));
+	rect_colors.push_back(Vec3f(0.5f, 0.5f, 0.0f));
 
 
 	polygon_colors.push_back(Vec3f(0.0f, 0.0f, 0.0f));	// default type color
@@ -192,20 +200,23 @@ void initial(){
 	putText(instruction, "4 Left-Forward", Point(70, 145), FONT_HERSHEY_SIMPLEX, 0.5, Scalar::all(0));
 	line(instruction, Point(10, 170), Point(60, 170), Scalar(128, 128, 0), 3);
 	putText(instruction, "5 Right-Forward", Point(70, 175), FONT_HERSHEY_SIMPLEX, 0.5, Scalar::all(0));
+	line(instruction, Point(10, 200), Point(60, 200), Scalar(0, 128, 128), 3);
+	putText(instruction, "6 TURN-ROUND", Point(70, 205), FONT_HERSHEY_SIMPLEX, 0.5, Scalar::all(0));
+	
 
-	putText(instruction, "Polygon:", Point(10, 220), FONT_HERSHEY_SIMPLEX, 0.5, Scalar::all(0));
-	line(instruction, Point(10, 250), Point(60, 250), Scalar(0, 0, 255), 1);
-	putText(instruction, "1 Parking", Point(70, 255), FONT_HERSHEY_SIMPLEX, 0.5, Scalar::all(0));
-	line(instruction, Point(10, 280), Point(60, 280), Scalar(0, 255, 0), 1);
-	putText(instruction, "2 Solid-White", Point(70, 285), FONT_HERSHEY_SIMPLEX, 0.5, Scalar::all(0));
-	line(instruction, Point(10, 310), Point(60, 310), Scalar(255, 0, 0), 1);
-	putText(instruction, "3 Dashed-White", Point(70, 315), FONT_HERSHEY_SIMPLEX, 0.5, Scalar::all(0));
-	line(instruction, Point(10, 340), Point(60, 340), Scalar(255, 0, 255), 1);
-	putText(instruction, "4 Solid-Yellow", Point(70, 345), FONT_HERSHEY_SIMPLEX, 0.5, Scalar::all(0));
-	line(instruction, Point(10, 370), Point(60, 370), Scalar(0, 255, 255), 1);
-	putText(instruction, "5 Dashed-Yellow", Point(70, 375), FONT_HERSHEY_SIMPLEX, 0.5, Scalar::all(0));
-	line(instruction, Point(10, 400), Point(60, 400), Scalar(255, 255, 0), 1);
-	putText(instruction, "6 Double-Yelllow", Point(70, 405), FONT_HERSHEY_SIMPLEX, 0.5, Scalar::all(0));
+	putText(instruction, "Polygon:", Point(10, 220 + 30), FONT_HERSHEY_SIMPLEX, 0.5, Scalar::all(0));
+	line(instruction, Point(10, 250 + 30), Point(60, 250 + 30), Scalar(0, 0, 255), 1);
+	putText(instruction, "1 Parking", Point(70, 255 + 30), FONT_HERSHEY_SIMPLEX, 0.5, Scalar::all(0));
+	line(instruction, Point(10, 280 + 30), Point(60, 280 + 30), Scalar(0, 255, 0), 1);
+	putText(instruction, "2 Solid-White", Point(70, 285 + 30), FONT_HERSHEY_SIMPLEX, 0.5, Scalar::all(0));
+	line(instruction, Point(10, 310 + 30), Point(60, 310 + 30), Scalar(255, 0, 0), 1);
+	putText(instruction, "3 Dashed-White", Point(70, 315 + 30), FONT_HERSHEY_SIMPLEX, 0.5, Scalar::all(0));
+	line(instruction, Point(10, 340 + 30), Point(60, 340 + 30), Scalar(255, 0, 255), 1);
+	putText(instruction, "4 Solid-Yellow", Point(70, 345 + 30), FONT_HERSHEY_SIMPLEX, 0.5, Scalar::all(0));
+	line(instruction, Point(10, 370 + 30), Point(60, 370 + 30), Scalar(0, 255, 255), 1);
+	putText(instruction, "5 Dashed-Yellow", Point(70, 375 + 30), FONT_HERSHEY_SIMPLEX, 0.5, Scalar::all(0));
+	line(instruction, Point(10, 400 + 30), Point(60, 400 + 30), Scalar(255, 255, 0), 1);
+	putText(instruction, "6 Double-Yelllow", Point(70, 405 + 30), FONT_HERSHEY_SIMPLEX, 0.5, Scalar::all(0));
 
 	putText(instruction, "Key to press:", Point(250, 20), FONT_HERSHEY_SIMPLEX, 0.5, Scalar::all(0));
 	putText(instruction, "n(N): next frame", Point(250, 70), FONT_HERSHEY_SIMPLEX, 0.4, Scalar::all(0));
